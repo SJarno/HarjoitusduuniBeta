@@ -17,15 +17,16 @@ public class Kayttoliittyma {
         while (true) {
             System.out.println("Valitse vaihtoehdoista: \n"
                     + "Luettele komennot (L)\n"
-                    + "Poistu ohjelmasta (X)\n"
-                    + "Anna komento (1-9)\n");
+                    + "Anna komento (1-9)\n"
+                    + "Poistu ohjelmasta (X)\n");
+           
             System.out.print("Komento: ");
             String komento = lukija.nextLine().trim().toUpperCase();
             switch (komento) {
                 case "X":
                     break OUTER;
                 case "L":
-                    System.out.println(luottele());
+                    System.out.println(luettele());
                     break;
                 default:
                     kutsuTietokantaa(komento);
@@ -35,7 +36,7 @@ public class Kayttoliittyma {
         }
     }
 
-    public String luottele() {
+    public String luettele() {
         return "Komennot \n"
                 + "1. Luo tietokanta ja taulut\n"
                 + "2. Uusi paikka\n"
@@ -68,33 +69,33 @@ public class Kayttoliittyma {
                 System.out.print("Anna paketin seurantakoodi: ");               
                 String koodi = lukija.nextLine();
                 System.out.print("Anna asiakkaan nimi: ");
-                String asiakasId = lukija.nextLine();
+                String asiakasId = lukija.nextLine().trim();
                 tietokanta.lisaaPaketti(koodi, asiakasId);
                 break;
             case "5":
                 System.out.print("Anna seurantakoodi: ");
-                String tapahtumaKoodi = lukija.nextLine();
+                String tapahtumaKoodi = lukija.nextLine().trim();
                 System.out.print("Anna paikka: ");
-                String tapahtumaPaikka = lukija.nextLine();
+                String tapahtumaPaikka = lukija.nextLine().trim();
                 System.out.print("Anna kuvaus: ");
                 String tapahtumaKuvaus = lukija.nextLine();
                 tietokanta.lisaaTapahtuma(tapahtumaKoodi, tapahtumaPaikka, tapahtumaKuvaus);
                 break;
             case "6":
                 System.out.print("Anna paketin seurantakoodi: ");
-                String seurantaKoodi = lukija.nextLine();
+                String seurantaKoodi = lukija.nextLine().trim();
                 tietokanta.haePaketinTapahtumat(seurantaKoodi);
                 break;
             case "7":
                 System.out.print("Anna asiakkaan nimi: ");
-                String asiakasNimi = lukija.nextLine();
+                String asiakasNimi = lukija.nextLine().trim();
                 tietokanta.haeAsiakkaanPaketitJaTapahtumat(asiakasNimi);
                 break;
             case "8":
                 System.out.print("Anna paikan nimi: ");
-                String paikanNimi = lukija.nextLine();
-                System.out.print("Anna päivämäärä: ");
-                String paivamaara = lukija.nextLine();
+                String paikanNimi = lukija.nextLine().trim();
+                System.out.print("Anna päivämäärä(pp.kk.vvvv): ");
+                String paivamaara = lukija.nextLine().trim();
                 tietokanta.haePaketinTapahtumatPaivana(paikanNimi, paivamaara);
                 break;
             case "9":

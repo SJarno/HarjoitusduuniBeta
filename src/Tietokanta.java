@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Random;
 
 public class Tietokanta {
 
@@ -35,16 +36,16 @@ public class Tietokanta {
         try {
             yhteys = this.luoYhteysJaTietokanta();
             if (yhteys != null) {
-                Statement s = yhteys.createStatement();
+                Statement s = yhteys.createStatement();               
                 s.execute("PRAGMA foreign_keys = ON;");
-                s.execute("CREATE TABLE IF NOT EXISTS Paikat (id INTEGER PRIMARY KEY, "
+                s.execute("CREATE TABLE Paikat (id INTEGER PRIMARY KEY, "
                         + "paikka TEXT UNIQUE NOT NULL CHECK (LENGTH(paikka) > 0));");
-                s.execute("CREATE TABLE IF NOT EXISTS Asiakas (id INTEGER PRIMARY KEY,"
+                s.execute("CREATE TABLE Asiakas (id INTEGER PRIMARY KEY,"
                         + "nimi TEXT UNIQUE NOT NULL CHECK (LENGTH(nimi) > 0));");
-                s.execute("CREATE TABLE IF NOT EXISTS Paketti (id INTEGER PRIMARY KEY,"
+                s.execute("CREATE TABLE Paketti (id INTEGER PRIMARY KEY,"
                         + "seurantakoodi INTEGER UNIQUE NOT NULL CHECK (LENGTH(seurantakoodi) > 0),"
                         + "asiakas_id INTEGER NOT NULL REFERENCES Asiakas);");
-                s.execute("CREATE TABLE IF NOT EXISTS Tapahtuma (id INTEGER PRIMARY KEY,"
+                s.execute("CREATE TABLE Tapahtuma (id INTEGER PRIMARY KEY,"
                         + "seurantakoodi_id INTEGER NOT NULL REFERENCES Paketti,"
                         + "paikka_id INTEGER NOT NULL REFERENCES Paikat,"
                         + "kuvaus TEXT, paivamaara DATE);");
@@ -53,6 +54,7 @@ public class Tietokanta {
             System.out.println("Tietokanta luotu");
 
         } catch (SQLException e) {
+            System.out.println("Tietokanta on jo olemassa");
             System.out.println("Virhe taulujen luomisessa: " + e.getMessage());
         } finally {
             if (yhteys != null) {
@@ -81,7 +83,7 @@ public class Tietokanta {
         Connection yhteys = null;
         yhteys = this.luoYhteysJaTietokanta();
         try {
-            stm = yhteys.prepareStatement(lisaa);
+            stm = yhteys.prepareStatement(lisaa);           
             stm.setString(1, paikka);
             stm.execute();
             System.out.println("Paikka lisätty");
@@ -137,13 +139,17 @@ public class Tietokanta {
         ja asiakkaan nimi. */
         int muunnosLuvuksi = 0;
         try {
-            muunnosLuvuksi = Integer.valueOf(seurantakoodi.trim());
+            muunnosLuvuksi = Integer.valueOf(seurantakoodi);
         } catch (NumberFormatException e) {
             System.out.println("Syöte tulee olla numeromuodossa");
             return;
         }
+        if (muunnosLuvuksi < 1) {
+            System.out.println("Numero ei saa olla negatiivinen.");
+            return;
+        }
 
-        int koodiKannassa = this.haeSeurantakoodi(seurantakoodi.trim());
+        int koodiKannassa = this.haeSeurantakoodi(seurantakoodi);
         if (koodiKannassa != -1) {
             System.out.println("Seurantakoodi on jo tietokannassa");
             return;
@@ -202,13 +208,13 @@ public class Tietokanta {
 
         int haettavaKoodi = 0;
         try {
-            haettavaKoodi = Integer.valueOf(seurantakoodi.trim());
+            haettavaKoodi = Integer.valueOf(seurantakoodi);
 
         } catch (NumberFormatException e) {
             System.out.println("Seurantakoodi täytyy olla numeromuodossa.");
             return;
         }
-        int koodiKannassa = this.haeSeurantakoodi(seurantakoodi.trim());
+        int koodiKannassa = this.haeSeurantakoodi(seurantakoodi);
         if (koodiKannassa == -1) {
             System.out.println("Tarkista seurantakoodi");
             return;
@@ -256,12 +262,12 @@ public class Tietokanta {
         }
         int haettavaKoodi = 0;
         try {
-            haettavaKoodi = Integer.valueOf(koodi.trim());
+            haettavaKoodi = Integer.valueOf(koodi);
         } catch (NumberFormatException e) {
             System.out.println("Seurantakoodi täytyy olla numeromuodossa");
             return;
         }
-        int koodiKannassa = this.haeSeurantakoodi(koodi.trim());
+        int koodiKannassa = this.haeSeurantakoodi(koodi);
         if (koodiKannassa == -1) {
             System.out.println("Tarkista seurantakoodi");
             return;
@@ -279,8 +285,8 @@ public class Tietokanta {
             kysely.setInt(1, haettavaKoodi);
             ResultSet tulos = kysely.executeQuery();
             if (tulos.getString("paivamaara").equals(null)) {
-                
-            } 
+
+            }
 
             while (tulos.next()) {
                 System.out.println(tulos.getString("paivamaara") + ", "
@@ -330,8 +336,9 @@ public class Tietokanta {
             PreparedStatement kysely = yhteys.prepareStatement(lisaa);
             kysely.setString(1, asiakas);
             ResultSet tulos = kysely.executeQuery();
-            if (!tulos.next()) {
-                System.out.println("Ei tapahtumia");
+
+            if (tulos.getString("seurantakoodi").equals(null)) {
+
             }
             while (tulos.next()) {
                 System.out.println(tulos.getInt("seurantakoodi")
@@ -340,6 +347,7 @@ public class Tietokanta {
             }
 
         } catch (SQLException e) {
+            System.out.println("Ei tapahtumia");
             System.out.println("Virhe: " + e.getMessage());
         } finally {
             if (yhteys != null) {
@@ -365,16 +373,14 @@ public class Tietokanta {
         }
         int paikkaKannassa = this.haePaikkaId(paikka);
         if (paikkaKannassa == -1) {
-            System.out.println("Paikkaa ei löytynyt");
             return;
         }
         int paivamaaraKannassa = this.haePaivamaaraId(paivamaara);
         if (paivamaaraKannassa == -1) {
-            System.out.println("Päivämäärää ei löytynyt");
             return;
         }
         Connection yhteys = null;
-        //paivamaara = paivamaara + "%";
+
         String lisaa = "SELECT COUNT(T.id)\n"
                 + "FROM Tapahtuma T LEFT JOIN Paikat P\n"
                 + "ON T.paikka_id = P.id WHERE P.paikka =?\n"
@@ -395,7 +401,7 @@ public class Tietokanta {
     }
 
     public void tehokkuustestiIlmanIndeksia() {
-        /*9. Suorita tietokannan tehokkuustesti ilmman indeksejä.*/
+        /*9.1 Suorita tietokannan tehokkuustesti ilmman indeksejä.*/
         PreparedStatement stm = null;
         String lisaaPaikka = "INSERT INTO Paikat (paikka) VALUES(?)";
         String lisaaAsiakas = "INSERT INTO Asiakas (nimi) VALUES(?)";
@@ -433,8 +439,9 @@ public class Tietokanta {
             long tehokkuustestiKolmeAlku = System.nanoTime();
             stm = yhteys.prepareStatement(lisaaPaketti);
             for (int i = 1; i <= 1000; i++) {
+                int arvoAsiakas = this.arvo(1000);                             
                 stm.setInt(1, i);
-                stm.setInt(2, 1);
+                stm.setInt(2, arvoAsiakas);
                 stm.execute();
             }
             System.out.println("Paketit lisätty");
@@ -443,7 +450,9 @@ public class Tietokanta {
             long tehokkuustestiNeljaAlku = System.nanoTime();
             stm = yhteys.prepareStatement(lisaaTapahtuma);
             for (int i = 1; i <= 1000000; i++) {
-                stm.setInt(1, 1);
+                //stm.setInt(1, 1);
+                int arvoSeurantakoodi = this.arvo(1000);
+                stm.setInt(1, arvoSeurantakoodi);
                 stm.setInt(2, 1);
                 stm.setString(3, "Testi" + i);
                 stm.setString(4, this.haeAika());
@@ -458,7 +467,8 @@ public class Tietokanta {
             //Suoritetaan tuhat kyselyä, joista jokaisessa haetaan jonkin asiakkaan pakettien määrä.
             stm = yhteys.prepareStatement(haePakettienMaara);
             for (int i = 1; i <= 1000; i++) {
-                stm.setInt(1, i);
+                int arvottuLuku = this.arvo(1000);
+                stm.setInt(1, arvottuLuku);
                 ResultSet tulos = stm.executeQuery();
                 while (tulos.next()) {
                     System.out.println("Pakettien määrä: " + tulos.getInt("COUNT(seurantakoodi)"));
@@ -470,7 +480,8 @@ public class Tietokanta {
             //Suoritetaan tuhat kyselyä, joista jokaisessa haetaan jonkin paketin tapahtumien määrä.
             stm = yhteys.prepareStatement(haeTapahtumienMaara);
             for (int i = 1; i <= 1000; i++) {
-                stm.setInt(1, i);
+                int arvottuLuku = this.arvo(1000);
+                stm.setInt(1, arvottuLuku);
                 ResultSet tulos = stm.executeQuery();
                 while (tulos.next()) {
                     System.out.println("Tapahtumien määrä: " + tulos.getInt("COUNT(seurantakoodi_id)"));
@@ -486,7 +497,7 @@ public class Tietokanta {
             System.out.println("Testiin kolme kului aikaa: " + (tehokkuustestiKolmeLoppu - tehokkuustestiKolmeAlku) / 1e9 + " sekuntia");
             System.out.println("Testiin neljä kului aikaa: " + (tehokkuustestiNeljaLoppu - tehokkuustestiNeljaAlku) / 1e9 + " sekuntia");
             System.out.println("Testiin viisi kului aikaa: " + (tehokkuustestiViisiLoppu - tehokkuustestiViisiAlku) / 1e9 + " sekuntia");
-            System.out.println("Testiin kuusi kului aikaa: " + (tehokkuustestiKuusiLoppu - tehokkuustestiKuusiAlku) / 1e9 + "sekuntia");
+            System.out.println("Testiin kuusi kului aikaa: " + (tehokkuustestiKuusiLoppu - tehokkuustestiKuusiAlku) / 1e9 + " sekuntia");
             System.out.println("Aikaa kului yhteensä: " + (tehokkuustestiLoppu - tehokkuustestiAlku) / 1e9 + " sekuntia");
         } catch (SQLException e) {
             System.out.println("Virhe: " + e.getMessage());
@@ -504,7 +515,7 @@ public class Tietokanta {
     }
 
     public void tehokkuustestiIndeksilla() {
-        //suorita tehokkustesti indekseillä
+        //9.2 suorita tehokkustesti indekseillä
         PreparedStatement stm = null;
         String lisaaPaikka = "INSERT INTO Paikat (paikka) VALUES(?)";
         String lisaaAsiakas = "INSERT INTO Asiakas (nimi) VALUES(?)";
@@ -549,8 +560,9 @@ public class Tietokanta {
             long tehokkuustestiKolmeAlku = System.nanoTime();
             stm = yhteys.prepareStatement(lisaaPaketti);
             for (int i = 1; i <= 1000; i++) {
+                int arvoAsiakasId = this.arvo(1000);
                 stm.setInt(1, i);
-                stm.setInt(2, 1);
+                stm.setInt(2, arvoAsiakasId);
                 stm.execute();
             }
             System.out.println("Paketit lisätty");
@@ -559,7 +571,9 @@ public class Tietokanta {
             long tehokkuustestiNeljaAlku = System.nanoTime();
             stm = yhteys.prepareStatement(lisaaTapahtuma);
             for (int i = 1; i <= 1000000; i++) {
-                stm.setInt(1, 1);
+                int arvoSeurantakoodi = this.arvo(1000);
+                //stm.setInt(1, 1);
+                stm.setInt(1, arvoSeurantakoodi);
                 stm.setInt(2, 1);
                 stm.setString(3, "Testi" + i);
                 stm.setString(4, this.haeAika());
@@ -575,7 +589,8 @@ public class Tietokanta {
 
             stm = yhteys.prepareStatement(haePakettienMaara);
             for (int i = 1; i <= 1000; i++) {
-                stm.setInt(1, i);
+                int arvottuLuku = this.arvo(1000);
+                stm.setInt(1, arvottuLuku);
                 ResultSet tulos = stm.executeQuery();
                 while (tulos.next()) {
                     System.out.println("Pakettien määrä: " + tulos.getInt("COUNT(seurantakoodi)"));
@@ -587,7 +602,8 @@ public class Tietokanta {
             //Suoritetaan tuhat kyselyä, joista jokaisessa haetaan jonkin paketin tapahtumien määrä.
             stm = yhteys.prepareStatement(haeTapahtumienMaara);
             for (int i = 1; i <= 1000; i++) {
-                stm.setInt(1, i);
+                int arvottuLuku = this.arvo(1000);
+                stm.setInt(1, arvottuLuku);
                 ResultSet tulos = stm.executeQuery();
                 while (tulos.next()) {
                     System.out.println("Tapahtumien määrä: " + tulos.getInt("COUNT(seurantakoodi_id)"));
@@ -603,7 +619,7 @@ public class Tietokanta {
             System.out.println("Testiin kolme kului aikaa: " + (tehokkuustestiKolmeLoppu - tehokkuustestiKolmeAlku) / 1e9 + " sekuntia");
             System.out.println("Testiin neljä kului aikaa: " + (tehokkuustestiNeljaLoppu - tehokkuustestiNeljaAlku) / 1e9 + " sekuntia");
             System.out.println("Testiin viisi kului aikaa: " + (tehokkuustestiViisiLoppu - tehokkuustestiViisiAlku) / 1e9 + " sekuntia");
-            System.out.println("Testiin kuusi kului aikaa: " + (tehokkuustestiKuusiLoppu - tehokkuustestiKuusiAlku) / 1e9 + "sekuntia");
+            System.out.println("Testiin kuusi kului aikaa: " + (tehokkuustestiKuusiLoppu - tehokkuustestiKuusiAlku) / 1e9 + " sekuntia");
             System.out.println("Aikaa kului yhteensä: " + (tehokkuustestiLoppu - tehokkuustestiAlku) / 1e9 + " sekuntia");
         } catch (SQLException e) {
             System.out.println("Virhe: " + e.getMessage());
@@ -682,10 +698,8 @@ public class Tietokanta {
         try {
             yhteys = this.luoYhteysJaTietokanta();
             PreparedStatement kysely = yhteys.prepareStatement(lisaa);
-
             kysely.setString(1, paikka);
             ResultSet tulos = kysely.executeQuery();
-
             palautaId = tulos.getInt("id");
 
         } catch (SQLException e) {
@@ -720,7 +734,6 @@ public class Tietokanta {
             PreparedStatement kysely = yhteys.prepareStatement(lisaa);
             kysely.setInt(1, haettavaKoodi);
             ResultSet tulos = kysely.executeQuery();
-
             koodiId = tulos.getInt("id");
 
         } catch (SQLException e) {
@@ -803,6 +816,10 @@ public class Tietokanta {
                 }
             }
         }
+    }
+    public int arvo(int luku) {
+        Random numero = new Random();
+        return numero.nextInt(luku) + 1;
     }
 
 }
